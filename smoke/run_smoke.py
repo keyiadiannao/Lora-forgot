@@ -102,11 +102,21 @@ def read_config(path: str) -> Dict:
 
 
 def apply_data_cache_env(config: Dict) -> None:
-    """若 data.hf_datasets_cache 已设置，则在 load_dataset 之前写入 HF_DATASETS_CACHE。"""
+    """根据 data 段设置数据集缓存与离线 hub（须在首次 load_dataset 前调用）。"""
     data = config.get("data") or {}
     cache = data.get("hf_datasets_cache")
     if cache:
         os.environ["HF_DATASETS_CACHE"] = str(cache)
+        try:
+            import datasets.config as ds_cfg  # type: ignore
+
+            ds_cfg.HF_DATASETS_CACHE = str(cache)
+        except Exception:
+            pass
+    # 仅本地文件时仍可能触发对 huggingface.co 的元数据请求；容器无外网时需显式离线
+    if bool(data.get("local_files_only", False)):
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["HF_DATASETS_OFFLINE"] = "1"
 
 
 def ensure_dir(path: str) -> None:
