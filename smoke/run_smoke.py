@@ -152,6 +152,24 @@ def sample_task_texts(
     mirror_endpoint: Optional[str] = None,
     allow_fallback: bool = True,
 ) -> Tuple[List[str], List[str]]:
+    def _apply_mirror_endpoint(endpoint: str) -> None:
+        # 既设置环境变量，也尽量覆盖运行时常量，避免库初始化后仍指向 huggingface.co
+        os.environ["HF_ENDPOINT"] = endpoint
+        os.environ["HF_HUB_ENDPOINT"] = endpoint
+        os.environ["HUGGINGFACE_HUB_BASE_URL"] = endpoint
+        try:
+            import datasets.config as ds_cfg  # type: ignore
+
+            ds_cfg.HF_ENDPOINT = endpoint
+        except Exception:
+            pass
+        try:
+            from huggingface_hub import constants as hf_const  # type: ignore
+
+            hf_const.ENDPOINT = endpoint
+        except Exception:
+            pass
+
     def _load_once() -> Tuple[List[str], List[str]]:
         dl_cfg = DownloadConfig(local_files_only=local_files_only)
         if task.subset in (None, "", "null", "None"):
@@ -176,8 +194,7 @@ def sample_task_texts(
         # 在线模式先尝试镜像重试一次；离线模式直接按 allow_fallback 走
         if (not local_files_only) and mirror_endpoint:
             print(f"[WARN] load_dataset 首次失败，尝试镜像重试: {mirror_endpoint} ({type(e).__name__})")
-            os.environ["HF_ENDPOINT"] = mirror_endpoint
-            os.environ["HF_HUB_ENDPOINT"] = mirror_endpoint
+            _apply_mirror_endpoint(mirror_endpoint)
             try:
                 return _load_once()
             except Exception as e2:
