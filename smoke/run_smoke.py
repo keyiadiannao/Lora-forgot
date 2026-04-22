@@ -144,8 +144,15 @@ def _fallback_text_bank(task: TaskSpec, n: int) -> List[str]:
     return out
 
 
-def sample_task_texts(task: TaskSpec, train_n: int, eval_n: int, local_files_only: bool = False) -> Tuple[List[str], List[str]]:
-    try:
+def sample_task_texts(
+    task: TaskSpec,
+    train_n: int,
+    eval_n: int,
+    local_files_only: bool = False,
+    mirror_endpoint: Optional[str] = None,
+    allow_fallback: bool = True,
+) -> Tuple[List[str], List[str]]:
+    def _load_once() -> Tuple[List[str], List[str]]:
         dl_cfg = DownloadConfig(local_files_only=local_files_only)
         if task.subset in (None, "", "null", "None"):
             ds = load_dataset(task.dataset, download_config=dl_cfg)
@@ -154,26 +161,33 @@ def sample_task_texts(task: TaskSpec, train_n: int, eval_n: int, local_files_onl
         train_split = ds[task.train_split]
         eval_split = ds[task.eval_split]
 
-        train_n = min(train_n, len(train_split))
-        eval_n = min(eval_n, len(eval_split))
+        tn = min(train_n, len(train_split))
+        en = min(eval_n, len(eval_split))
+        train_rows = train_split.shuffle(seed=42).select(range(tn))
+        eval_rows = eval_split.shuffle(seed=42).select(range(en))
 
-        train_rows = train_split.shuffle(seed=42).select(range(train_n))
-        eval_rows = eval_split.shuffle(seed=42).select(range(eval_n))
-
-        train_texts = []
-        for row in train_rows:
-            x = str(row.get(task.input_key, ""))
-            y = str(row.get(task.target_key, ""))
-            train_texts.append(f"Q: {x}\nA: {y}")
-
-        eval_texts = []
-        for row in eval_rows:
-            x = str(row.get(task.input_key, ""))
-            y = str(row.get(task.target_key, ""))
-            eval_texts.append(f"Q: {x}\nA: {y}")
-
+        train_texts = [f"Q: {str(row.get(task.input_key, ''))}\nA: {str(row.get(task.target_key, ''))}" for row in train_rows]
+        eval_texts = [f"Q: {str(row.get(task.input_key, ''))}\nA: {str(row.get(task.target_key, ''))}" for row in eval_rows]
         return train_texts, eval_texts
+
+    try:
+        return _load_once()
     except Exception as e:
+        # 在线模式先尝试镜像重试一次；离线模式直接按 allow_fallback 走
+        if (not local_files_only) and mirror_endpoint:
+            print(f"[WARN] load_dataset 首次失败，尝试镜像重试: {mirror_endpoint} ({type(e).__name__})")
+            os.environ["HF_ENDPOINT"] = mirror_endpoint
+            os.environ["HF_HUB_ENDPOINT"] = mirror_endpoint
+            try:
+                return _load_once()
+            except Exception as e2:
+                e = e2
+
+        if not allow_fallback:
+            raise RuntimeError(
+                f"load_dataset 失败且已禁用 fallback: {task.dataset}/{task.subset} ({type(e).__name__})"
+            ) from e
+
         print(
             f"[WARN] load_dataset 失败 ({task.dataset}/{task.subset})，"
             f"已切换 fallback 样本。错误: {type(e).__name__}"
@@ -848,6 +862,8 @@ def run_proxy_smoke(config: Dict, output_dir: str) -> None:
     eval_n = int(config["train"]["max_eval_samples"])
     weights = config["metrics"]["c_couple_weights"]
     data_local_only = bool(config.get("data", {}).get("local_files_only", False))
+    data_mirror = config.get("data", {}).get("hf_endpoint", None)
+    allow_fallback = bool(config.get("data", {}).get("allow_fallback", True))
 
     rows = []
     pareto_rows = []
@@ -856,8 +872,22 @@ def run_proxy_smoke(config: Dict, output_dir: str) -> None:
         task_a = parse_task(pair["task_a"])
         task_b = parse_task(pair["task_b"])
 
-        a_train, _ = sample_task_texts(task_a, train_n, eval_n, local_files_only=data_local_only)
-        b_train, _ = sample_task_texts(task_b, train_n, eval_n, local_files_only=data_local_only)
+        a_train, _ = sample_task_texts(
+            task_a,
+            train_n,
+            eval_n,
+            local_files_only=data_local_only,
+            mirror_endpoint=data_mirror,
+            allow_fallback=allow_fallback,
+        )
+        b_train, _ = sample_task_texts(
+            task_b,
+            train_n,
+            eval_n,
+            local_files_only=data_local_only,
+            mirror_endpoint=data_mirror,
+            allow_fallback=allow_fallback,
+        )
 
         metric_values = {
             "gradient_alignment": metric_gradient_alignment_proxy(a_train, b_train),
@@ -922,6 +952,8 @@ def run_real_smoke(config: Dict, output_dir: str) -> None:
     weights = config["metrics"]["c_couple_weights"]
     strategies = config["strategies"]
     data_local_only = bool(config.get("data", {}).get("local_files_only", False))
+    data_mirror = config.get("data", {}).get("hf_endpoint", None)
+    allow_fallback = bool(config.get("data", {}).get("allow_fallback", True))
 
     model, tokenizer, device = load_lora_model_and_tokenizer(config)
     print(f"[INFO] device={device}")
@@ -934,8 +966,22 @@ def run_real_smoke(config: Dict, output_dir: str) -> None:
         task_a = parse_task(pair["task_a"])
         task_b = parse_task(pair["task_b"])
 
-        a_train, a_eval = sample_task_texts(task_a, train_n, eval_n, local_files_only=data_local_only)
-        b_train, b_eval = sample_task_texts(task_b, train_n, eval_n, local_files_only=data_local_only)
+        a_train, a_eval = sample_task_texts(
+            task_a,
+            train_n,
+            eval_n,
+            local_files_only=data_local_only,
+            mirror_endpoint=data_mirror,
+            allow_fallback=allow_fallback,
+        )
+        b_train, b_eval = sample_task_texts(
+            task_b,
+            train_n,
+            eval_n,
+            local_files_only=data_local_only,
+            mirror_endpoint=data_mirror,
+            allow_fallback=allow_fallback,
+        )
 
         # A 阶段微调（含前后诊断）
         a_loss_before_a = eval_loss(model, tokenizer, device, a_eval, config["train"])
