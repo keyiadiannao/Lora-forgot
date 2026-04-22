@@ -1,0 +1,81 @@
+seed: 42
+output_dir: outputs/real_smoke_qwen7b_8pairs_smoke
+
+model:
+  name: Qwen/Qwen2.5-7B-Instruct
+  # 先走在线拉取；若服务器已缓存，可改为本地 snapshot 目录
+  local_path: Qwen/Qwen2.5-7B-Instruct
+  trust_remote_code: false
+  local_files_only: false
+  use_fast_tokenizer: false
+  low_cpu_mem_usage: true
+  torch_dtype: float16
+  use_4bit: false
+
+data:
+  local_files_only: false
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.0
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+train:
+  max_seq_len: 192
+  learning_rate: 5.0e-4
+  epochs: 1
+  batch_size: 1
+  grad_accum_steps: 8
+  max_grad_norm: 1.0
+  max_train_samples: 80
+  max_eval_samples: 80
+
+tasks:
+  - name: gsm8k_vs_winograd
+    task_a: {dataset: gsm8k, subset: main, train_split: train, eval_split: test, input_key: question, target_key: answer}
+    task_b: {dataset: winogrande, subset: winogrande_s, train_split: train, eval_split: validation, input_key: sentence, target_key: answer}
+
+  - name: gsm8k_vs_imdb
+    task_a: {dataset: gsm8k, subset: main, train_split: train, eval_split: test, input_key: question, target_key: answer}
+    task_b: {dataset: imdb, train_split: train, eval_split: test, input_key: text, target_key: label}
+
+  - name: gsm8k_vs_hotpotqa
+    task_a: {dataset: gsm8k, subset: main, train_split: train, eval_split: test, input_key: question, target_key: answer}
+    task_b: {dataset: hotpotqa/hotpot_qa, subset: distractor, train_split: train, eval_split: validation, input_key: question, target_key: answer}
+
+  - name: gsm8k_vs_2wiki
+    task_a: {dataset: gsm8k, subset: main, train_split: train, eval_split: test, input_key: question, target_key: answer}
+    task_b: {dataset: ohjoonhee/2WikiMultihopQA, train_split: train, eval_split: validation, input_key: question, target_key: answer}
+
+  - name: mmlu_vs_imdb
+    task_a: {dataset: cais/mmlu, subset: high_school_physics, train_split: dev, eval_split: test, input_key: question, target_key: answer}
+    task_b: {dataset: imdb, train_split: train, eval_split: test, input_key: text, target_key: label}
+
+  - name: mmlu_vs_winograd
+    task_a: {dataset: cais/mmlu, subset: high_school_physics, train_split: dev, eval_split: test, input_key: question, target_key: answer}
+    task_b: {dataset: winogrande, subset: winogrande_s, train_split: train, eval_split: validation, input_key: sentence, target_key: answer}
+
+  - name: hotpotqa_vs_imdb
+    task_a: {dataset: hotpotqa/hotpot_qa, subset: distractor, train_split: train, eval_split: validation, input_key: question, target_key: answer}
+    task_b: {dataset: imdb, train_split: train, eval_split: test, input_key: text, target_key: label}
+
+  - name: twowiki_vs_winograd
+    task_a: {dataset: ohjoonhee/2WikiMultihopQA, train_split: train, eval_split: validation, input_key: question, target_key: answer}
+    task_b: {dataset: winogrande, subset: winogrande_s, train_split: train, eval_split: validation, input_key: sentence, target_key: answer}
+
+metrics:
+  compute_gradient_alignment: true
+  compute_fisher_overlap: true
+  compute_activation_spectrum_overlap: true
+  c_couple_weights:
+    gradient_alignment: 0.4
+    fisher_overlap: 0.3
+    activation_spectrum_overlap: 0.3
+
+strategies:
+  - vanilla_lora
+  - random_freeze_30
+  - lower_layers_freeze_30
+  - c_couple_freeze_30
+  - spectrum_freeze_30
