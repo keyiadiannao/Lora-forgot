@@ -13,9 +13,9 @@ model:
   use_4bit: false
 
 data:
-  # 数据走镜像，失败即报错（不再接受 fallback）
-  local_files_only: false
-  hf_endpoint: https://hf-mirror.com
+  # 使用本机已同步到数据盘的 HF datasets 缓存（见 HF_DATASETS_CACHE）
+  local_files_only: true
+  hf_datasets_cache: /root/autodl-tmp/hf/datasets
   allow_fallback: false
 
 lora:

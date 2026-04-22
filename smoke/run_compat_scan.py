@@ -113,6 +113,7 @@ def layer_spectrum_stats(model, tokenizer, device, texts_a: List[str], texts_b: 
 
 def compat_scan(config_path: str, output_dir: str) -> Dict:
     cfg = rs.read_config(config_path)
+    rs.apply_data_cache_env(cfg)
     rs.set_seed(int(cfg.get("seed", 42)))
     os.makedirs(output_dir, exist_ok=True)
 

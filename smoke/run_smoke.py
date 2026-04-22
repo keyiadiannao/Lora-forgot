@@ -101,6 +101,14 @@ def read_config(path: str) -> Dict:
         return yaml.safe_load(f)
 
 
+def apply_data_cache_env(config: Dict) -> None:
+    """若 data.hf_datasets_cache 已设置，则在 load_dataset 之前写入 HF_DATASETS_CACHE。"""
+    data = config.get("data") or {}
+    cache = data.get("hf_datasets_cache")
+    if cache:
+        os.environ["HF_DATASETS_CACHE"] = str(cache)
+
+
 def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
@@ -1174,6 +1182,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = read_config(args.config)
+    apply_data_cache_env(config)
     if args.seed is not None:
         config["seed"] = int(args.seed)
     if args.output_dir:
