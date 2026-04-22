@@ -62,3 +62,13 @@ $out = "outputs\real_smoke_qwen7b_8pairs_quick"
 ```powershell
 & "C:\Users\26433\miniconda3\envs\mamba2\python.exe" smoke\run_compat_scan.py --config smoke\configs\real_smoke_qwen15b_8pairs_quick.yaml --output-dir outputs\real_smoke_qwen15b_8pairs_quick\compat_scan
 ```
+
+---
+
+## AutoDL / 云服务器（7B 跑数）最低建议
+
+- **GPU 显存**：优先 **≥24GB**（如 RTX 3090/4090、A10）；7B fp16 权重 + LoRA + 激活与缓存，16GB 易 OOM 或需大幅减 `max_seq_len` / `max_train_samples`。  
+- **磁盘**：系统盘外建议 **≥50GB** 空闲（模型快照 + `datasets` 缓存 + 多 seed 输出）；可将 `HF_HOME`/`HF_DATASETS_CACHE` 指到数据盘。  
+- **软件**：与本地对齐即可——**Python 3.10+**、`pip install -r requirements.txt`、**CUDA 与 torch 版本匹配**（AutoDL 镜像通常已配好）。  
+- **同步代码**：`git clone https://github.com/keyiadiannao/Lora-forgot.git`，在服务器改 yaml 里 `model.local_path` 或先 `huggingface-cli download` 再填路径；**勿把密码或 token 写进仓库**。  
+- **安全**：不要在聊天/ issue 里发 **SSH 密码**；用 **SSH 公钥登录**、仓库用 **HTTPS+PAT** 或 **SSH deploy key**。
