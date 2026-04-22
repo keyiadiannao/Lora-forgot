@@ -1,0 +1,65 @@
+﻿# 方向探测用：3 个代表性任务对（高遗忘 / 中高 / 常负遗忘），单 seed 快速复算
+seed: 42
+output_dir: outputs/probe_smoke_qwen15b_3pairs
+
+model:
+  name: Qwen/Qwen2.5-1.5B-Instruct
+  local_path: C:/Users/26433/.cache/huggingface/hub/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306
+  trust_remote_code: false
+  local_files_only: true
+  use_fast_tokenizer: false
+  low_cpu_mem_usage: true
+  torch_dtype: float16
+  use_4bit: false
+
+data:
+  local_files_only: true
+
+lora:
+  rank: 16
+  alpha: 32
+  dropout: 0.0
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+train:
+  max_seq_len: 256
+  learning_rate: 5.0e-4
+  epochs: 1
+  batch_size: 1
+  grad_accum_steps: 4
+  max_grad_norm: 1.0
+  max_train_samples: 96
+  max_eval_samples: 96
+
+tasks:
+  - name: gsm8k_vs_winograd
+    task_a: {dataset: gsm8k, subset: main, train_split: train, eval_split: test, input_key: question, target_key: answer}
+    task_b: {dataset: winogrande, subset: winogrande_s, train_split: train, eval_split: validation, input_key: sentence, target_key: answer}
+
+  - name: hotpotqa_vs_imdb
+    task_a: {dataset: hotpotqa/hotpot_qa, subset: distractor, train_split: train, eval_split: validation, input_key: question, target_key: answer}
+    task_b: {dataset: imdb, train_split: train, eval_split: test, input_key: text, target_key: label}
+
+  - name: twowiki_vs_winograd
+    task_a: {dataset: ohjoonhee/2WikiMultihopQA, train_split: train, eval_split: validation, input_key: question, target_key: answer}
+    task_b: {dataset: winogrande, subset: winogrande_s, train_split: train, eval_split: validation, input_key: sentence, target_key: answer}
+
+metrics:
+  compute_gradient_alignment: true
+  compute_fisher_overlap: true
+  compute_activation_spectrum_overlap: true
+  c_couple_weights:
+    gradient_alignment: 0.4
+    fisher_overlap: 0.3
+    activation_spectrum_overlap: 0.3
+
+strategies:
+  - vanilla_lora
+  - random_freeze_30
+  - lower_layers_freeze_30
+  - c_couple_freeze_30
+  - spectrum_freeze_30
+  - spectrum_extreme_freeze_30
+
+
+

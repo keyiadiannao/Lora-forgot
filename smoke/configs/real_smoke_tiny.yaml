@@ -1,0 +1,72 @@
+seed: 42
+output_dir: outputs/real_smoke_tiny
+
+model:
+  name: sshleifer/tiny-gpt2
+  trust_remote_code: false
+  torch_dtype: float32
+  use_4bit: false
+
+lora:
+  rank: 4
+  alpha: 8
+  dropout: 0.05
+  target_modules: ["c_attn", "c_proj"]
+
+train:
+  max_seq_len: 256
+  learning_rate: 2.0e-4
+  epochs: 1
+  batch_size: 2
+  grad_accum_steps: 4
+  max_train_samples: 48
+  max_eval_samples: 64
+
+tasks:
+  - name: gsm8k_vs_winograd
+    task_a:
+      dataset: gsm8k
+      subset: main
+      train_split: train
+      eval_split: test
+      input_key: question
+      target_key: answer
+    task_b:
+      dataset: winogrande
+      subset: winogrande_s
+      train_split: train
+      eval_split: validation
+      input_key: sentence
+      target_key: answer
+
+  - name: gsm8k_vs_mmlu_stem
+    task_a:
+      dataset: gsm8k
+      subset: main
+      train_split: train
+      eval_split: test
+      input_key: question
+      target_key: answer
+    task_b:
+      dataset: cais/mmlu
+      subset: high_school_physics
+      train_split: dev
+      eval_split: test
+      input_key: question
+      target_key: answer
+
+metrics:
+  compute_gradient_alignment: true
+  compute_fisher_overlap: true
+  compute_activation_spectrum_overlap: true
+  c_couple_weights:
+    gradient_alignment: 0.4
+    fisher_overlap: 0.3
+    activation_spectrum_overlap: 0.3
+
+strategies:
+  - vanilla_lora
+  - random_freeze_30
+  - lower_layers_freeze_30
+  - c_couple_freeze_30
+  - spectrum_freeze_30

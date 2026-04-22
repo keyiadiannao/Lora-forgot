@@ -1,0 +1,74 @@
+seed: 42
+output_dir: outputs/local_smoke
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  trust_remote_code: false
+  torch_dtype: float16
+  use_4bit: true
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: ["q_proj", "v_proj"]
+
+train:
+  max_seq_len: 512
+  learning_rate: 2.0e-4
+  epochs: 1
+  batch_size: 1
+  grad_accum_steps: 8
+  max_train_samples: 100
+  max_eval_samples: 200
+
+tasks:
+  # 高耦合（示例，可按你数据源替换）
+  - name: gsm8k_vs_mmlu_stem
+    task_a:
+      dataset: gsm8k
+      subset: main
+      train_split: train
+      eval_split: test
+      input_key: question
+      target_key: answer
+    task_b:
+      dataset: cais/mmlu
+      subset: high_school_physics
+      train_split: dev
+      eval_split: test
+      input_key: question
+      target_key: answer
+
+  # 低耦合（示例）
+  - name: gsm8k_vs_winograd
+    task_a:
+      dataset: gsm8k
+      subset: main
+      train_split: train
+      eval_split: test
+      input_key: question
+      target_key: answer
+    task_b:
+      dataset: winogrande
+      subset: winogrande_s
+      train_split: train
+      eval_split: validation
+      input_key: sentence
+      target_key: answer
+
+metrics:
+  compute_gradient_alignment: true
+  compute_fisher_overlap: true
+  compute_activation_spectrum_overlap: true
+  c_couple_weights:
+    gradient_alignment: 0.4
+    fisher_overlap: 0.3
+    activation_spectrum_overlap: 0.3
+
+strategies:
+  - vanilla_lora
+  - random_freeze_30
+  - lower_layers_freeze_30
+  - c_couple_freeze_30
+  - spectrum_freeze_30

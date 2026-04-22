@@ -1,0 +1,31 @@
+# 实验输出（体积大、可复现生成；需要时可用 Git LFS 或单独打包）
+outputs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.*
+
+# IDE / 系统
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 本地模型与缓存（勿提交权重；服务器上用 HF_HOME 或 snapshot 路径）
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
