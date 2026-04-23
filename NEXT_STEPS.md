@@ -1,5 +1,11 @@
 ﻿# 下一步执行计划（论文导向）
 
+## Scaling 对照（当前优先）
+
+- **协议文档**：`docs/SCALING_PROTOCOL.md`（8 pairs、seeds 42–44、指标 A/B、`forgetting`、与 7B smoke **对齐的训练/LORA**）。
+- **1.5B 对齐配置**：`smoke/configs/real_smoke_qwen15b_8pairs_7b_protocol.yaml`（跑前修改其中 `model.local_path`）。
+- **7B 参考输出**：`outputs/real_smoke_qwen7b_8pairs_smoke/`（已含 `activation_principal_cos_k3/k5` 与 `holdout_corr.json`）。
+
 ## 当前已收口（可写进主文/附录）
 
 - **主指标**：`activation_spectrum_overlap`（48 点，6 seeds×8 pairs），`focus_report` 中跨 seed 同号率 1.0。

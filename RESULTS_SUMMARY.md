@@ -12,6 +12,8 @@
 - 第 1 点有正面结果（可复现）。
 - 第 2 点暂未形成稳定结论（仅有轻微改善）。
 
+**1.5B↔7B 同协议 scaling 表**：指标 A/B 定义、yaml、命令与 hold-out 解读约束见 **`docs/SCALING_PROTOCOL.md`**；1.5B 对齐配置为 `smoke/configs/real_smoke_qwen15b_8pairs_7b_protocol.yaml`。
+
 ---
 
 ## 2. 数据与实验设置（本阶段）
@@ -61,7 +63,7 @@
 - 公式：`forgetting = a_loss_after_b - a_loss_after_a`
 - 含义：数值越大，表示 B 训练后对 A 的破坏越明显。
 
-### 3.2 `activation_spectrum_overlap`（主指标：做了什么）
+### 3.2 `activation_spectrum_overlap`（指标 A：rank-1 谱重叠）
 
 做法（每个 `(seed,pair)` 一次）：
 
@@ -74,6 +76,13 @@
 
 - 该值越大，表示 A/B 在“主表征方向”上越重合；经验上更容易发生干涉与遗忘。
 - 在本项目里，它用于**主预测变量**，直接与 `forgetting` 做相关分析。
+
+### 3.2b `activation_principal_cos_k3` / `activation_principal_cos_k5`（指标 B：多主方向子空间）
+
+- **目的**：缓解「单主方向在宽网络中被稀释」的问题，用于 **1.5B↔7B scaling** 对照（与指标 A **并列报告**，不可混为同一数值序列）。
+- **做法**：对 A、B 的句向量矩阵分别 `TruncatedSVD(n_components=k_eff)`，取各自前 `k_eff` 个右奇异向量张成子空间；对 `Va.T @ Vb` 做 SVD，**奇异值 = 两子空间主夹角余弦**，再取 **均值**；结果在 **[0, 1]**。
+- **实现**：`run_smoke.py` 中 `principal_angle_mean_cos_overlap` / `activation_overlap_multi_k_real`；`pair_metrics.csv` 列名同上。
+- **协议与跑数命令**：见仓库根目录 **`docs/SCALING_PROTOCOL.md`**（含与 7B smoke 对齐的 yaml 名、多 seed、`run_holdout_corr.py` 用法）。
 
 ### 3.3 `spectrum_layers_std/span`（辅指标：做了什么）
 
