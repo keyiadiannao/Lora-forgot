@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import torch
 import yaml
-from datasets import DownloadConfig, load_dataset
 from peft import LoraConfig, TaskType, get_peft_model
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -102,21 +101,22 @@ def read_config(path: str) -> Dict:
 
 
 def apply_data_cache_env(config: Dict) -> None:
-    """根据 data 段设置数据集缓存与离线 hub（须在首次 load_dataset 前调用）。"""
+    """根据 data 段设置数据集缓存与离线 hub（必须在 import datasets 之前调用）。"""
     data = config.get("data") or {}
     cache = data.get("hf_datasets_cache")
+    # 先写环境变量，再 touch datasets；否则 huggingface_hub 可能在 import 阶段就固定了联网行为
+    if bool(data.get("local_files_only", False)):
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        os.environ["HF_DATASETS_OFFLINE"] = "1"
     if cache:
         os.environ["HF_DATASETS_CACHE"] = str(cache)
+    if cache:
         try:
             import datasets.config as ds_cfg  # type: ignore
 
             ds_cfg.HF_DATASETS_CACHE = str(cache)
         except Exception:
             pass
-    # 仅本地文件时仍可能触发对 huggingface.co 的元数据请求；容器无外网时需显式离线
-    if bool(data.get("local_files_only", False)):
-        os.environ["HF_HUB_OFFLINE"] = "1"
-        os.environ["HF_DATASETS_OFFLINE"] = "1"
 
 
 def ensure_dir(path: str) -> None:
@@ -189,6 +189,8 @@ def sample_task_texts(
             pass
 
     def _load_once() -> Tuple[List[str], List[str]]:
+        from datasets import DownloadConfig, load_dataset
+
         dl_cfg = DownloadConfig(local_files_only=local_files_only)
         if task.subset in (None, "", "null", "None"):
             ds = load_dataset(task.dataset, download_config=dl_cfg)
