@@ -604,6 +604,55 @@ def activation_overlap_real(model, tokenizer, device, texts_a: List[str], texts_
     return cosine(va, vb)
 
 
+def principal_angle_mean_cos_overlap(
+    a: np.ndarray,
+    b: np.ndarray,
+    k: int,
+    random_state: int = 42,
+) -> float:
+    """
+    对 A/B 的样本×hidden 矩阵分别做 TruncatedSVD 取前 k_eff 个右奇异向量（特征空间正交基），
+    用两子空间的主夹角余弦的均值作为标量重叠：singular values of (Va.T @ Vb)，每个在 [0,1]。
+    k=1 时等于 |cos(首主方向)|，与 activation_overlap_real 的带符号 cosine 略有不同。
+    """
+    if a.ndim != 2 or b.ndim != 2 or a.shape[1] < 2 or b.shape[1] < 2:
+        return float("nan")
+    d = int(min(a.shape[1], b.shape[1]))
+    na, nb = int(a.shape[0]), int(b.shape[0])
+    k_req = int(max(1, k))
+    k_eff = int(min(k_req, na - 1, nb - 1, d))
+    if k_eff < 1:
+        return float("nan")
+    try:
+        svd_a = TruncatedSVD(n_components=k_eff, random_state=random_state)
+        svd_b = TruncatedSVD(n_components=k_eff, random_state=random_state)
+        svd_a.fit(a)
+        svd_b.fit(b)
+        # sklearn: components_.shape == (k_eff, d), 行正交单位向量
+        va = svd_a.components_.T  # (d, k_eff), 列正交
+        vb = svd_b.components_.T
+        m = va.T @ vb  # (k_eff, k_eff)
+        s = np.linalg.svd(m, compute_uv=False)
+        s = np.clip(s.astype(np.float64), 0.0, 1.0)
+        return float(np.mean(s))
+    except Exception:
+        return float("nan")
+
+
+def activation_overlap_multi_k_real(
+    model,
+    tokenizer,
+    device,
+    texts_a: List[str],
+    texts_b: List[str],
+    train_cfg: Dict,
+    k: int,
+) -> float:
+    a = _collect_last_hidden_repr(model, tokenizer, device, texts_a, train_cfg)
+    b = _collect_last_hidden_repr(model, tokenizer, device, texts_b, train_cfg)
+    return principal_angle_mean_cos_overlap(a, b, k, random_state=42)
+
+
 def linear_cka_overlap_real(model, tokenizer, device, texts_a: List[str], texts_b: List[str], train_cfg: Dict) -> float:
     a = _collect_last_hidden_repr(model, tokenizer, device, texts_a, train_cfg)
     b = _collect_last_hidden_repr(model, tokenizer, device, texts_b, train_cfg)
@@ -1041,6 +1090,8 @@ def run_real_smoke(config: Dict, output_dir: str) -> None:
             model, tokenizer, device, a_train, b_train, config["train"]
         )
         act_overlap = activation_overlap_real(model, tokenizer, device, a_train, b_train, config["train"])
+        act_pk3 = activation_overlap_multi_k_real(model, tokenizer, device, a_train, b_train, config["train"], 3)
+        act_pk5 = activation_overlap_multi_k_real(model, tokenizer, device, a_train, b_train, config["train"], 5)
         svcca_overlap = svcca_overlap_real(model, tokenizer, device, a_train, b_train, config["train"])
         cka_overlap = linear_cka_overlap_real(model, tokenizer, device, a_train, b_train, config["train"])
         spectrum_scores, spectrum_per_layer = activation_spectrum_layer_scores_real(
@@ -1061,6 +1112,8 @@ def run_real_smoke(config: Dict, output_dir: str) -> None:
             "gradient_alignment": grad_align,
             "fisher_overlap": fisher_overlap,
             "activation_spectrum_overlap": act_overlap,
+            "activation_principal_cos_k3": act_pk3,
+            "activation_principal_cos_k5": act_pk5,
             "svcca_overlap": svcca_overlap,
             "linear_cka_overlap": cka_overlap,
         }
@@ -1148,6 +1201,9 @@ def run_real_smoke(config: Dict, output_dir: str) -> None:
         "linear_cka_overlap_vs_forgetting": pearson_safe(metrics_df, "linear_cka_overlap", "forgetting"),
         "c_couple_vs_forgetting": pearson_safe(metrics_df, "c_couple", "forgetting"),
     }
+    for col in ("activation_principal_cos_k3", "activation_principal_cos_k5"):
+        if col in metrics_df.columns:
+            pearson[f"{col}_vs_forgetting"] = pearson_safe(metrics_df, col, "forgetting")
     for col in ("spectrum_layers_mean", "spectrum_layers_std", "spectrum_layers_span", "spectrum_layers_max", "spectrum_layers_min"):
         if col in metrics_df.columns:
             pearson[f"{col}_vs_forgetting"] = pearson_safe(metrics_df, col, "forgetting")

@@ -112,6 +112,9 @@ def aggregate_results(
     for col in ("svcca_overlap", "linear_cka_overlap"):
         if col in all_pair_df.columns:
             corr_all[f"{col}_vs_forgetting"] = safe_corr(all_pair_df, col, "forgetting")
+    for col in ("activation_principal_cos_k3", "activation_principal_cos_k5"):
+        if col in all_pair_df.columns:
+            corr_all[f"{col}_vs_forgetting"] = safe_corr(all_pair_df, col, "forgetting")
     for col in (
         "spectrum_layers_mean",
         "spectrum_layers_std",
