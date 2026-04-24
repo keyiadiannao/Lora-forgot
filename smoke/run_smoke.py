@@ -1090,6 +1090,7 @@ def run_real_smoke(config: Dict, output_dir: str) -> None:
             model, tokenizer, device, a_train, b_train, config["train"]
         )
         act_overlap = activation_overlap_real(model, tokenizer, device, a_train, b_train, config["train"])
+        act_pk2 = activation_overlap_multi_k_real(model, tokenizer, device, a_train, b_train, config["train"], 2)
         act_pk3 = activation_overlap_multi_k_real(model, tokenizer, device, a_train, b_train, config["train"], 3)
         act_pk5 = activation_overlap_multi_k_real(model, tokenizer, device, a_train, b_train, config["train"], 5)
         svcca_overlap = svcca_overlap_real(model, tokenizer, device, a_train, b_train, config["train"])
@@ -1112,6 +1113,7 @@ def run_real_smoke(config: Dict, output_dir: str) -> None:
             "gradient_alignment": grad_align,
             "fisher_overlap": fisher_overlap,
             "activation_spectrum_overlap": act_overlap,
+            "activation_principal_cos_k2": act_pk2,
             "activation_principal_cos_k3": act_pk3,
             "activation_principal_cos_k5": act_pk5,
             "svcca_overlap": svcca_overlap,
@@ -1201,7 +1203,7 @@ def run_real_smoke(config: Dict, output_dir: str) -> None:
         "linear_cka_overlap_vs_forgetting": pearson_safe(metrics_df, "linear_cka_overlap", "forgetting"),
         "c_couple_vs_forgetting": pearson_safe(metrics_df, "c_couple", "forgetting"),
     }
-    for col in ("activation_principal_cos_k3", "activation_principal_cos_k5"):
+    for col in ("activation_principal_cos_k2", "activation_principal_cos_k3", "activation_principal_cos_k5"):
         if col in metrics_df.columns:
             pearson[f"{col}_vs_forgetting"] = pearson_safe(metrics_df, col, "forgetting")
     for col in ("spectrum_layers_mean", "spectrum_layers_std", "spectrum_layers_span", "spectrum_layers_max", "spectrum_layers_min"):

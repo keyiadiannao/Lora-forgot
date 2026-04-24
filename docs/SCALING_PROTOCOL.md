@@ -101,6 +101,22 @@ $PYTHON smoke/run_holdout_corr.py \
 
 ---
 
+## 7.1 当前同协议观察（2026-04）
+
+基于已完成的 3-seed 同协议结果：
+
+- 7B：`activation_principal_cos_k3/k5` 对 forgetting 的 pooled 相关高于 rank-1；
+- 1.5B：rank-1 指标更强，`k3` 并未复现“固定最优”。
+
+因此当前口径应为：
+
+- ✅ “子空间覆盖相关指标有效”；
+- ❌ “固定 k=3 跨尺度最优”。
+
+下一步应优先补 `k=2` + Spearman + 反向 pair 小样本，而不是直接拟合统一 `k_opt` 公式。
+
+---
+
 ## 8. 配置文件一览
 
 | 环境 | 1.5B（与 7B smoke 对齐） | 7B（AutoDL） |
