@@ -45,9 +45,9 @@
 
 最后一层 hidden、batch 维句向量矩阵上，各自 `TruncatedSVD(n_components=1)` 的首主方向 **cosine**（见 `run_smoke.activation_overlap_real`）。
 
-### 4.2 `activation_principal_cos_k3` / `activation_principal_cos_k5`（指标 B，子空间主夹角）
+### 4.2 `activation_principal_cos_k2` / `k3` / `k5`（指标 B，子空间主夹角）
 
-对 A、B 矩阵分别取前 `k_eff` 个右奇异向量张成子空间，对 `Va.T @ Vb` 做 SVD，**奇异值 = 主夹角余弦**，再取 **均值**；值域 **[0, 1]**。实现见 `run_smoke.principal_angle_mean_cos_overlap` / `activation_overlap_multi_k_real`。
+对 A、B 矩阵分别取前 `k_eff` 个右奇异向量张成子空间（**`k_eff ∈ {2,3,5}`**），对 `Va.T @ Vb` 做 SVD，**奇异值 = 主夹角余弦**，再取 **均值**；值域 **[0, 1]**。实现见 `run_smoke.principal_angle_mean_cos_overlap` / `activation_overlap_multi_k_real`。
 
 **重要**：B **不是** A 的简单「加维度」；B 非负且有界，与 A 的 Pearson **不可与历史仅报告 A 的 r 直接比大小**，除非同表并列且解释量纲。
 
@@ -75,7 +75,7 @@ $PYTHON smoke/run_multiseed.py --config "$CFG" --mode real --seeds 42 43 44 \
 $PYTHON smoke/run_holdout_corr.py \
   --csv "$OUT/multiseed_pair_metrics.csv" \
   --target forgetting \
-  --predictors activation_spectrum_overlap activation_principal_cos_k3 activation_principal_cos_k5 gradient_alignment \
+  --predictors activation_spectrum_overlap activation_principal_cos_k2 activation_principal_cos_k3 activation_principal_cos_k5 gradient_alignment \
   --output-csv "$OUT/holdout_corr_table.csv" \
   --output-json "$OUT/holdout_corr.json"
 ```
@@ -105,15 +105,15 @@ $PYTHON smoke/run_holdout_corr.py \
 
 基于已完成的 3-seed 同协议结果：
 
-- 7B：`activation_principal_cos_k3/k5` 对 forgetting 的 pooled 相关高于 rank-1；
-- 1.5B：rank-1 指标更强，`k3` 并未复现“固定最优”。
+- 7B：Pearson 上 **`k1<k2<k3<k5`**（`k2` 已显著高于 rank-1）；
+- 1.5B：**rank-1（k1）** 仍最强，`k2/k3` 弱，`k5` 中等。
 
 因此当前口径应为：
 
 - ✅ “子空间覆盖相关指标有效”；
 - ❌ “固定 k=3 跨尺度最优”。
 
-下一步应优先补 `k=2` + Spearman + 反向 pair 小样本，而不是直接拟合统一 `k_opt` 公式。
+**更新（2026-04）**：同协议已补 **`k=2`** 并重跑 pooled / hold-out；Spearman 与反向 pair 证据见 `RESULTS_SUMMARY.md` §2.3、§13–§14。下一步可转向 bootstrap / 主图绘制，而不是继续猜测 `k_opt` 闭式。
 
 ---
 

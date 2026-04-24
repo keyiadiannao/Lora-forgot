@@ -61,25 +61,25 @@
 - 1.5B 路径：`outputs/real_smoke_qwen15b_8pairs_7b_protocol`
 - hold-out 路径：两侧均有 `holdout_corr.json`
 
-当前 pooled Pearson（`holdout_corr.json`）：
+当前 pooled Pearson（与 `multiseed_pair_metrics.csv` 全 24 点一致；来自各输出目录 **`holdout_corr.json`** 的 `pearson_pooled_all_rows`；2026-04 含 **`k2` 列** 全量重跑后刷新）：
 
-| 模型 | `activation_spectrum_overlap` | `activation_principal_cos_k3` | `activation_principal_cos_k5` | `gradient_alignment` |
-|------|-------------------------------:|--------------------------------:|--------------------------------:|---------------------:|
-| 1.5B（同协议 3 seeds） | **0.838** | 0.018 | 0.475 | 0.067 |
-| 7B（同协议 3 seeds） | 0.524 | **0.844** | 0.782 | 0.003 |
+| 模型 | k1 (`activation_spectrum_overlap`) | k2 (`activation_principal_cos_k2`) | k3 (`activation_principal_cos_k3`) | k5 (`activation_principal_cos_k5`) | `gradient_alignment` |
+|------|------------------------------------:|-------------------------------------:|-------------------------------------:|-------------------------------------:|----------------------:|
+| 1.5B（同协议 3 seeds） | **0.869** | -0.020 | 0.045 | 0.460 | -0.086 |
+| 7B（同协议 3 seeds） | 0.433 | 0.807 | **0.865** | **0.881** | 0.169 |
 
-同批数据的 pooled Spearman（`outputs/scaling_kcorr_table.csv`）：
+同批数据的 pooled Spearman（`smoke/run_kcorr_table.py` 对同一 CSV 直接计算）：
 
-| 模型 | k1 (`activation_spectrum_overlap`) | k3 (`activation_principal_cos_k3`) | k5 (`activation_principal_cos_k5`) | grad |
-|------|-----------------------------------:|------------------------------------:|------------------------------------:|-----:|
-| 1.5B | **0.835** | 0.050 | 0.170 | -0.155 |
-| 7B | 0.447 | **0.871** | 0.784 | 0.152 |
+| 模型 | k1 | k2 | k3 | k5 | grad |
+|------|---:|---:|---:|---:|-----:|
+| 1.5B | **0.832** | -0.141 | -0.065 | 0.166 | -0.043 |
+| 7B | 0.363 | 0.691 | **0.823** | **0.845** | 0.126 |
 
 解读（必须保守）：
 
-- 多主方向修补在 **7B** 上明显有效（k3/k5 > rank-1）。
-- 在 **1.5B 同协议** 上则不是固定结论（rank-1 更强，k3 很弱）。
-- 因此“固定 k=3”不成立；更合理命题是：**`k_opt` 具有模型/任务依赖性**。
+- **7B**：在 Pearson 上 **`k1 < k2 < k3 < k5` 单调上升**，`k2` 已明显高于 rank-1；多主方向秩在本协议下整体优于只看第一层主方向。
+- **1.5B 同协议**：**rank-1（k1）仍最强**；`k2/k3` 接近零或弱负（Spearman 上 `k2` 亦为负），`k5` 为中等强度正相关——不能写成“秩越高越好”。
+- 因此“固定 k=3”不成立；更合理命题是：**`k_opt` 具有模型/任务依赖性**；补 **`k=2`** 后叙事从“只在 1/3/5 插值”升级为“**7B 单调、1.5B 非单调**”的可检验陈述。
 
 ---
 
@@ -105,11 +105,11 @@
 - 该值越大，表示 A/B 在“主表征方向”上越重合；经验上更容易发生干涉与遗忘。
 - 在本项目里，它用于**主预测变量**，直接与 `forgetting` 做相关分析。
 
-### 3.2b `activation_principal_cos_k3` / `activation_principal_cos_k5`（指标 B：多主方向子空间）
+### 3.2b `activation_principal_cos_k2` / `k3` / `k5`（指标 B：多主方向子空间）
 
 - **目的**：检验“单主方向是否在更大模型中失真”，用于 **1.5B↔7B scaling** 对照（与指标 A **并列报告**，不可混为同一数值序列）。
-- **做法**：对 A、B 的句向量矩阵分别 `TruncatedSVD(n_components=k_eff)`，取各自前 `k_eff` 个右奇异向量张成子空间；对 `Va.T @ Vb` 做 SVD，**奇异值 = 两子空间主夹角余弦**，再取 **均值**；结果在 **[0, 1]**。
-- **实现**：`run_smoke.py` 中 `principal_angle_mean_cos_overlap` / `activation_overlap_multi_k_real`；`pair_metrics.csv` 列名同上。
+- **做法**：对 A、B 的句向量矩阵分别 `TruncatedSVD(n_components=k_eff)`，`k_eff ∈ {2,3,5}`，取各自前 `k_eff` 个右奇异向量张成子空间；对 `Va.T @ Vb` 做 SVD，**奇异值 = 两子空间主夹角余弦**，再取 **均值**；结果在 **[0, 1]**。
+- **实现**：`run_smoke.py` 中 `principal_angle_mean_cos_overlap` / `activation_overlap_multi_k_real`；`pair_metrics.csv` 列名 `activation_principal_cos_k2`（及 k3、k5）。
 - **协议与跑数命令**：见仓库根目录 **`docs/SCALING_PROTOCOL.md`**（含与 7B smoke 对齐的 yaml 名、多 seed、`run_holdout_corr.py` 用法）。
 
 ### 3.3 `spectrum_layers_std/span`（辅指标：做了什么）
@@ -304,14 +304,14 @@ python smoke/run_focus_report.py --input-dir outputs/probe_smoke_qwen15b_3pairs
 **当前可主张的贡献（建议写法）**
 
 1. **同协议跨尺度结果已形成**：1.5B 与 7B 均完成 8-pair×3-seed，对照口径统一（见 `docs/SCALING_PROTOCOL.md`）。
-2. **低维覆盖信号成立，但最优秩不固定**：7B 上 `k3/k5` 强于 rank-1；1.5B 上 rank-1 更强。应表述为“`k_opt` 模型依赖”，而非“固定 k=3 普适最优”。
+2. **低维覆盖信号成立，但最优秩不固定**：7B 同协议上 **Pearson 满足 `k1<k2<k3<k5`**；1.5B 同协议上 **k1 仍最强**，`k2/k3` 弱。应表述为“`k_opt` 模型依赖”，而非“固定 k=3 普适最优”。
 3. **全局子空间基线在本协议下弱**：SVCCA/CKA 标量对 forgetting 的解释力整体弱于主谱指标（实现依赖，需保留协议限定语）。
 4. **负结果完整披露**：冻结策略增益不稳定，`spectrum_freeze_30` 未表现出可靠优势（含配对检验）。
 
 **仍需补强的审稿风险点**
 
 - **方向性**：当前主表以 A->B 为主，需用反向小样本（B->A）明确“无向兼容性 vs 有向脆弱性”的边界。
-- **秩分辨率**：目前主对照是 `k={1,3,5}`；建议补 `k=2`，并给出 `k vs r`（Pearson+Spearman）曲线。
+- **秩分辨率**：已补 **`k=2`**（同协议 1.5B/7B 与反向 8-pair 重跑）；主文可给 **`k vs r`**（Pearson+Spearman）折线，并明确 7B 单调、1.5B 非单调。
 - **因果层级**：现阶段仍是预测/相关，不是机制证明；正文需主动承认这一点。
 
 **一句话建议**
@@ -374,16 +374,17 @@ pooled 相关（`multiseed_pair_metrics.csv`）：
 
 ### 14.1 反向方向自身（B->A，48 点）
 
-`outputs/real_smoke_qwen15b_reverse8pairs_7b_protocol/kcorr_table.csv`：
+`smoke/run_kcorr_table.py` 对 `multiseed_pair_metrics.csv`（48 点）：
 
 | 指标 | Pearson | Spearman |
 |------|--------:|---------:|
-| `activation_spectrum_overlap` (k1) | 0.256 | 0.072 |
-| `activation_principal_cos_k3` | -0.433 | -0.660 |
-| `activation_principal_cos_k5` | 0.154 | -0.043 |
-| `gradient_alignment` | -0.387 | -0.436 |
+| `activation_spectrum_overlap` (k1) | 0.237 | 0.044 |
+| `activation_principal_cos_k2` | -0.240 | -0.368 |
+| `activation_principal_cos_k3` | -0.402 | -0.600 |
+| `activation_principal_cos_k5` | 0.175 | -0.014 |
+| `gradient_alignment` | -0.463 | -0.402 |
 
-结论：反向方向上，先前在正向更强的 k1 信号明显减弱，且 k3 转为负相关。
+结论：反向方向上，正向里最强的 **k1** 信号减弱；**k3** 在 Pearson/Spearman 上均为负；**k2** 亦呈负相关，与 7B 正向的 **`k1<k2`** 结构形成对照。
 
 ### 14.2 正反方向对照（同协议、同 seeds 42/43/44）
 
@@ -396,12 +397,14 @@ pooled 相关（`multiseed_pair_metrics.csv`）：
 
 对照结果：
 
-| 方向 | k1 Pearson / Spearman | k3 Pearson / Spearman | k5 Pearson / Spearman |
-|------|-----------------------:|-----------------------:|-----------------------:|
-| Forward (A->B) | 0.838 / 0.835 | 0.018 / 0.050 | 0.475 / 0.170 |
-| Reverse (B->A) | 0.249 / 0.081 | -0.526 / -0.744 | 0.053 / -0.051 |
+| 方向 | k1 | k2 | k3 | k5 |
+|------|----|----|----|-----|
+| Forward (A->B) | 0.869 / 0.832 | -0.020 / -0.141 | 0.045 / -0.065 | 0.460 / 0.166 |
+| Reverse (B->A) | 0.219 / 0.002 | -0.245 / -0.388 | -0.415 / -0.651 | 0.124 / -0.017 |
 
-这在同协议同 seed 子集上确认了：**方向不对称性存在**（不仅是 3-pair 小样本噪声）。
+（表中格式均为 **Pearson / Spearman**；子集为 seeds **42/43/44** 各 8 pair，共 24 点。）
+
+这在同协议同 seed 子集上确认了：**方向不对称性存在**（不仅是 3-pair 小样本噪声）；**k2** 在反向为负、在正向 1.5B 亦近零/略负，与 **7B 正向 k2≫k1** 形成 scaling 对照锚点。
 
 ### 14.3 解释边界
 

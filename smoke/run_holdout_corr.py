@@ -5,7 +5,7 @@
   python smoke/run_holdout_corr.py \\
     --csv outputs/real_smoke_qwen7b_8pairs_smoke/multiseed_pair_metrics.csv \\
     --target forgetting \\
-    --predictors activation_spectrum_overlap activation_principal_cos_k3 activation_principal_cos_k5 \\
+    --predictors activation_spectrum_overlap activation_principal_cos_k2 activation_principal_cos_k3 activation_principal_cos_k5 \\
     --output-json outputs/real_smoke_qwen7b_8pairs_smoke/holdout_corr.json
 """
 

@@ -132,6 +132,12 @@ py smoke\run_smoke.py --config smoke\configs\full_smoke.yaml
 
 说明：`multiseed_summary.json` 中新增 `n_points_seed_pair`，当点数 < 15 时不会给出 H1 通过结论。
 
+## 4.8) 1.5B↔7B 同协议 scaling 与 k–r 表
+
+- 协议与披露约束：`docs/SCALING_PROTOCOL.md`
+- 合并 `multiseed_pair_metrics.csv` 上的 Pearson/Spearman（含 **`k2`**）：`smoke/run_kcorr_table.py`
+- AutoDL 连接与日志路径备忘：`docs/AUTODL_AND_SSH.md`
+
 ## 5) 注意事项
 
 - 首次下载模型和数据集会较慢

@@ -4,8 +4,9 @@
 
 - **7B 同协议 3-seed**：`outputs/real_smoke_qwen7b_8pairs_smoke/`
 - **1.5B 同协议 3-seed**：`outputs/real_smoke_qwen15b_8pairs_7b_protocol/`
+- **含 `k2` 列的全量重跑**（AutoDL）：上述两目录 + `outputs/real_smoke_qwen15b_reverse8pairs_7b_protocol/`、`outputs/real_smoke_qwen15b_reverse3pairs_7b_protocol/`；`holdout_corr.*` 已用 **`k2` 预测列** 重生成。
 - **两侧 holdout**：均已生成 `holdout_corr.json` / `holdout_corr_table.csv`
-- **协议文档**：`docs/SCALING_PROTOCOL.md`
+- **协议文档**：`docs/SCALING_PROTOCOL.md`；**结果精修**：`RESULTS_SUMMARY.md` §2.3、§14（含 k2 与刷新数值）
 
 结论提醒：当前数据支持“子空间覆盖有效，但最优 k 非固定（模型依赖）”，不支持“k=3 普适最优”。
 
@@ -17,7 +18,7 @@
 
 ### 1) 画主图：`k vs r` 交叉图（同协议）
 
-目标：给出 1.5B 与 7B 在相同协议下的 `k={1,3,5}` 对 forgetting 相关对照；图上同时给 Pearson 与 Spearman。
+目标：给出 1.5B 与 7B 在相同协议下的 **`k={1,2,3,5}`** 对 forgetting 相关对照；图上同时给 Pearson 与 Spearman。（**数据已在 AutoDL 侧就绪**；将 `multiseed_pair_metrics.csv` 拷回本机后可用 `smoke/run_kcorr_table.py` 复算。）
 
 - 输入：
   - `outputs/real_smoke_qwen15b_8pairs_7b_protocol/multiseed_pair_metrics.csv`
@@ -54,9 +55,9 @@
 
 ## P1（条件允许再做）
 
-### 4) 补 `k=2`
+### 4) ~~补 `k=2`~~（已完成）
 
-在 1.5B 与 7B 各补一轮 `k=2`，提高 `k-r` 曲线分辨率，避免“只在 1/3/5 点上插值”的质疑。
+已在 `run_smoke.py` 写入 `activation_principal_cos_k2`，并在 AutoDL 上对同协议与反向配置完成重跑；论文主文可直接使用 **`k={1,2,3,5}`** 曲线。
 
 ### 5) 最小稳健性统计
 

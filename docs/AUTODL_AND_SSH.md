@@ -109,6 +109,15 @@ head -1 /root/work/Lora-forgot/outputs/real_smoke_qwen15b_8pairs_7b_protocol/see
 
 流水线全部结束时，日志末尾会出现：`ALL DONE`。
 
+### 3.1 拉回本机（写作 / 画图）
+
+在仓库根目录执行 `scp`（`Host` 名以你本机 `~/.ssh/config` 为准）：
+
+```powershell
+scp autodl-c48:/root/work/Lora-forgot/outputs/real_smoke_qwen15b_8pairs_7b_protocol/multiseed_pair_metrics.csv outputs/real_smoke_qwen15b_8pairs_7b_protocol/
+scp autodl-c48:/root/work/Lora-forgot/outputs/real_smoke_qwen7b_8pairs_smoke/multiseed_pair_metrics.csv outputs/real_smoke_qwen7b_8pairs_smoke/
+```
+
 ---
 
 ## 4. 实例重建后需要更新的项
