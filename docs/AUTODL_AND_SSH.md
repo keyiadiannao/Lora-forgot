@@ -101,6 +101,14 @@ ssh autodl-c48 'nvidia-smi; pgrep -af run_smoke'
 
 跑完后在对应 `outputs/.../multiseed_pair_metrics.csv` 中应出现列 `activation_principal_cos_k2`（需用含 k2 的 `run_smoke.py` 重跑各 seed 后才会写入）。
 
+**自检（某一 seed 跑完后即可试）：** 表头应含 `activation_principal_cos_k2`；未完成时仍是旧表头（仅有 k3/k5）。
+
+```bash
+head -1 /root/work/Lora-forgot/outputs/real_smoke_qwen15b_8pairs_7b_protocol/seed_42/pair_metrics.csv | grep -o activation_principal_cos_k2 || echo "该 seed 尚未写出含 k2 的新 CSV"
+```
+
+流水线全部结束时，日志末尾会出现：`ALL DONE`。
+
 ---
 
 ## 4. 实例重建后需要更新的项
